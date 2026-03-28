@@ -25,8 +25,17 @@ func NewRegistry() *Registry {
 	}
 }
 
-// Add registers a command.
+// Add registers a command. Panics on nil definition, empty name, or duplicate registration.
 func (r *Registry) Add(cmd Command) {
+	if cmd.Definition == nil {
+		panic("commands: cannot register command with nil Definition")
+	}
+	if cmd.Definition.Name == "" {
+		panic("commands: cannot register command with empty Name")
+	}
+	if _, exists := r.commands[cmd.Definition.Name]; exists {
+		panic("commands: command already registered: " + cmd.Definition.Name)
+	}
 	r.commands[cmd.Definition.Name] = cmd
 }
 

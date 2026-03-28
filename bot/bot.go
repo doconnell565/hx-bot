@@ -22,9 +22,7 @@ func New(cfg *config.Config) (*Bot, error) {
 		return nil, fmt.Errorf("creating discord session: %w", err)
 	}
 
-	session.Identify.Intents = discordgo.IntentsGuilds |
-		discordgo.IntentsGuildMessages |
-		discordgo.IntentsGuildVoiceStates
+	session.Identify.Intents = discordgo.IntentsGuilds
 
 	b := &Bot{
 		session:  session,
@@ -51,7 +49,9 @@ func (b *Bot) Start() error {
 }
 
 func (b *Bot) Stop() {
-	b.session.Close()
+	if err := b.session.Close(); err != nil {
+		log.Printf("error closing discord session: %v", err)
+	}
 }
 
 // registerCommands adds all command handlers to the registry.
@@ -92,16 +92,19 @@ func (b *Bot) handleInteraction(s *discordgo.Session, i *discordgo.InteractionCr
 
 	if err := handler(s, i); err != nil {
 		log.Printf("command %s error: %v", name, err)
-		respond(s, i, fmt.Sprintf("Error: %v", err))
+		if respErr := respond(s, i, "Something went wrong."); respErr != nil {
+			log.Printf("failed to send error response for command %s: %v", name, respErr)
+		}
 	}
 }
 
 // respond sends an ephemeral text reply to an interaction.
-func respond(s *discordgo.Session, i *discordgo.InteractionCreate, msg string) {
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+func respond(s *discordgo.Session, i *discordgo.InteractionCreate, msg string) error {
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: msg,
+			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})
 }
